@@ -7,6 +7,8 @@ namespace {
     const char* KWSX_URL = "https://stream.kwsx.online/listen/kwsx/radio.mp3";
     const char* NOW_PLAYING = "https://stream.kwsx.online/api/nowplaying/kwsx";
 
+    static ui_status_text_override::ptr override_obj;
+
     class my_static_monitor : public play_callback_static {
     public:
         // 1. MUST be implemented. Queried ONCE by foobar2000 on startup.
@@ -35,6 +37,19 @@ namespace {
         void on_volume_change(float p_new_val) override { (void)p_new_val; }
 
     private:
+        void set_custom_now_playing_display(const char* custom_text) {
+            auto pc = playback_control::get();
+
+            if (pc->is_playing()) {
+                auto ui = ui_control::get();
+
+                // 1. Create the status override object
+                if (ui->override_status_text_create(override_obj)) {
+                    // 2. Set your custom text
+                    override_obj->override_text(custom_text);
+                }
+            }
+        }
         void check_stream(metadb_handle_ptr track) {
             if (track.is_empty()) return;
 
@@ -52,8 +67,10 @@ namespace {
 			if (is_kwsx_stream(track)) {
 				console::formatter() << "[KWSX Stream Detected] URL: " << path;
 				json data = get_stream_data();
+				set_custom_now_playing_display(data["station"]["description"].get<std::string>().c_str());
 			}
         }
+     
 
         json get_stream_data() {
             auto client = http_client::get();
