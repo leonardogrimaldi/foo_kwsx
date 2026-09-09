@@ -1,8 +1,12 @@
 #include "stdafx.h"
 #include <foobar2000/SDK/foobar2000.h>
+#include "json.hpp"
+using json = nlohmann::json;
 
 namespace {
     const char* KWSX_URL = "https://stream.kwsx.online/listen/kwsx/radio.mp3";
+    const char* NOW_PLAYING = "https://stream.kwsx.online/api/nowplaying/kwsx";
+
     class my_static_monitor : public play_callback_static {
     public:
         // 1. MUST be implemented. Queried ONCE by foobar2000 on startup.
@@ -47,11 +51,29 @@ namespace {
 
 			if (is_kwsx_stream(track)) {
 				console::formatter() << "[KWSX Stream Detected] URL: " << path;
+				json data = get_stream_data();
 			}
         }
 
+        json get_stream_data() {
+            auto client = http_client::get();
+			http_request::ptr request = client->create_request("GET");
+            request->add_header("User-Agent", "foo_kwsx/0.0.1");
+            request->add_header("Accept", "application/json");
+
+            // Execute request - returns a file::ptr pointing to the response stream
+            // Throws exception_io on connection or non-2XX HTTP status failure
+            file::ptr response_stream = request->run(NOW_PLAYING, fb2k::noAbort);
+
+            pfc::string8 response_body;
+            response_stream->read_string_raw(response_body, fb2k::noAbort);
+            json data = json::parse(response_body.get_ptr());
+
+            return data;
+        }
+
 		bool is_kwsx_stream(metadb_handle_ptr track) {
-			if (track.is_empty()) return;
+			if (track.is_empty()) return false;
 			const char* path = track->get_path();
 			if (strcmp(path, KWSX_URL) == 0) {
 				return true;
