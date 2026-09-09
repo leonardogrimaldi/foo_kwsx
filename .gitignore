@@ -1,3 +1,9 @@
+# Foobar2000 SDK
+sdk/*
+
+# Keep directory only
+!sdk/.gitkeep
+
 # Prerequisites
 *.d
 
